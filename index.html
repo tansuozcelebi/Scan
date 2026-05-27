@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="DocScan">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="description" content="Professional PWA Document Scanner with OCR">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="css/style.css">
+    <title>DocScan Pro</title>
+</head>
+<body>
+    <div id="app">
+        <!-- Top Bar -->
+        <header id="topBar">
+            <button id="btnBack" class="icon-btn hidden" aria-label="Geri">
+                <svg viewBox="0 0 24 24" width="24" height="24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+            </button>
+            <h1 id="pageTitle">DocScan Pro</h1>
+            <div id="topActions">
+                <button id="btnSettings" class="icon-btn" aria-label="Ayarlar">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1115.6 12 3.611 3.611 0 0112 15.6z" fill="currentColor"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Home Screen -->
+        <section id="homeScreen" class="screen active">
+            <div class="home-hero">
+                <div class="hero-icon">
+                    <svg viewBox="0 0 80 80" width="80" height="80">
+                        <rect x="10" y="5" width="60" height="70" rx="4" fill="none" stroke="currentColor" stroke-width="3"/>
+                        <line x1="20" y1="20" x2="60" y2="20" stroke="currentColor" stroke-width="2"/>
+                        <line x1="20" y1="30" x2="60" y2="30" stroke="currentColor" stroke-width="2"/>
+                        <line x1="20" y1="40" x2="50" y2="40" stroke="currentColor" stroke-width="2"/>
+                        <circle cx="58" cy="58" r="16" fill="#4361ee" stroke="white" stroke-width="2"/>
+                        <path d="M52 58h12M58 52v12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h2>Doküman Tarayıcı</h2>
+                <p>Belgelerinizi hızlıca tarayın, OCR ile metne dönüştürün</p>
+            </div>
+            <div class="home-actions">
+                <button id="btnNewScan" class="primary-btn">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" fill="currentColor"/></svg>
+                    Yeni Tarama
+                </button>
+                <button id="btnImportImage" class="secondary-btn">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" fill="currentColor"/></svg>
+                    Galeriden Yükle
+                </button>
+            </div>
+            <div id="recentDocs" class="recent-section hidden">
+                <h3>Son Taramalar</h3>
+                <div id="recentList" class="recent-list"></div>
+            </div>
+        </section>
+
+        <!-- Camera Screen -->
+        <section id="cameraScreen" class="screen">
+            <div id="cameraContainer">
+                <video id="cameraFeed" autoplay playsinline muted></video>
+                <canvas id="overlayCanvas"></canvas>
+                <div id="cameraGuide">
+                    <div class="guide-corner tl"></div>
+                    <div class="guide-corner tr"></div>
+                    <div class="guide-corner bl"></div>
+                    <div class="guide-corner br"></div>
+                </div>
+                <div id="detectionStatus">
+                    <span id="statusText">Belge aranıyor...</span>
+                </div>
+            </div>
+            <div id="cameraControls">
+                <button id="btnFlash" class="cam-btn" aria-label="Flaş">
+                    <svg viewBox="0 0 24 24" width="28" height="28"><path d="M7 2v11h3v9l7-12h-4l4-8z" fill="currentColor"/></svg>
+                </button>
+                <button id="btnCapture" class="capture-btn" aria-label="Çek">
+                    <span class="capture-ring"></span>
+                </button>
+                <button id="btnAutoCapture" class="cam-btn active" aria-label="Otomatik Çekim">
+                    <svg viewBox="0 0 24 24" width="28" height="28"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/></svg>
+                    <span class="btn-label">Oto</span>
+                </button>
+            </div>
+            <div id="pageCounter" class="hidden">
+                <span id="pageCount">0</span> sayfa
+                <button id="btnFinishScan" class="finish-btn">Bitir</button>
+            </div>
+        </section>
+
+        <!-- Editor Screen -->
+        <section id="editorScreen" class="screen">
+            <div id="editorContainer">
+                <canvas id="editorCanvas"></canvas>
+                <div id="cropHandles" class="hidden">
+                    <div class="crop-handle" data-corner="tl"></div>
+                    <div class="crop-handle" data-corner="tr"></div>
+                    <div class="crop-handle" data-corner="br"></div>
+                    <div class="crop-handle" data-corner="bl"></div>
+                    <svg id="cropOverlay" class="crop-overlay"></svg>
+                </div>
+            </div>
+            <div id="editorToolbar">
+                <button id="btnRotateLeft" class="tool-btn" aria-label="Sola Döndür">
+                    <svg viewBox="0 0 24 24" width="22" height="22"><path d="M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c2.84.48 5 2.94 5 5.91s-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93z" fill="currentColor"/></svg>
+                    <span>Döndür</span>
+                </button>
+                <button id="btnCrop" class="tool-btn" aria-label="Kırp">
+                    <svg viewBox="0 0 24 24" width="22" height="22"><path d="M17 15h2V7c0-1.1-.9-2-2-2H9v2h8v8zM7 17V1H5v4H1v2h4v10c0 1.1.9 2 2 2h10v4h2v-4h4v-2H7z" fill="currentColor"/></svg>
+                    <span>Kırp</span>
+                </button>
+                <button id="btnFilter" class="tool-btn" aria-label="Filtre">
+                    <svg viewBox="0 0 24 24" width="22" height="22"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0-8c1.65 0 3 1.35 3 3s-1.35 3-3 3-3-1.35-3-3 1.35-3 3-3z" fill="currentColor"/></svg>
+                    <span>Filtre</span>
+                </button>
+                <button id="btnOCR" class="tool-btn" aria-label="OCR">
+                    <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z" fill="currentColor"/></svg>
+                    <span>OCR</span>
+                </button>
+            </div>
+            <div id="filterPanel" class="panel hidden">
+                <div class="filter-options">
+                    <button class="filter-opt active" data-filter="original">Orijinal</button>
+                    <button class="filter-opt" data-filter="grayscale">Gri Ton</button>
+                    <button class="filter-opt" data-filter="bw">Siyah-Beyaz</button>
+                    <button class="filter-opt" data-filter="enhanced">Gelişmiş</button>
+                </div>
+                <div class="filter-sliders">
+                    <label>Parlaklık <input type="range" id="brightness" min="-100" max="100" value="0"></label>
+                    <label>Kontrast <input type="range" id="contrast" min="-100" max="100" value="0"></label>
+                </div>
+            </div>
+            <div id="editorActions">
+                <button id="btnEditorDone" class="primary-btn">Tamam</button>
+            </div>
+        </section>
+
+        <!-- Pages / Document Review Screen -->
+        <section id="reviewScreen" class="screen">
+            <div id="pageThumbs" class="page-thumbs"></div>
+            <div id="reviewActions">
+                <button id="btnAddPage" class="secondary-btn">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" fill="currentColor"/></svg>
+                    Sayfa Ekle
+                </button>
+                <button id="btnExport" class="primary-btn">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/></svg>
+                    Dışa Aktar
+                </button>
+            </div>
+        </section>
+
+        <!-- Export Screen -->
+        <section id="exportScreen" class="screen">
+            <h2 class="export-title">Dışa Aktarma</h2>
+            <div class="export-options">
+                <div class="export-group">
+                    <h3>Görüntü / Belge</h3>
+                    <button class="export-btn" data-format="jpg">
+                        <div class="export-icon jpg">JPG</div>
+                        <span>JPEG Görüntü</span>
+                    </button>
+                    <button class="export-btn" data-format="pdf">
+                        <div class="export-icon pdf">PDF</div>
+                        <span>PDF Belge</span>
+                    </button>
+                </div>
+                <div class="export-group">
+                    <h3>OCR ile Metin Çıkarma</h3>
+                    <button class="export-btn" data-format="docx">
+                        <div class="export-icon docx">DOCX</div>
+                        <span>Word Belgesi</span>
+                    </button>
+                    <button class="export-btn" data-format="xlsx">
+                        <div class="export-icon xlsx">XLSX</div>
+                        <span>Excel Tablosu</span>
+                    </button>
+                    <button class="export-btn" data-format="txt">
+                        <div class="export-icon txt">TXT</div>
+                        <span>Düz Metin</span>
+                    </button>
+                </div>
+            </div>
+            <div id="exportProgress" class="hidden">
+                <div class="progress-bar"><div class="progress-fill"></div></div>
+                <p id="exportStatus">İşleniyor...</p>
+            </div>
+        </section>
+
+        <!-- OCR Results Screen -->
+        <section id="ocrScreen" class="screen">
+            <div id="ocrContent">
+                <div id="ocrLoading" class="hidden">
+                    <div class="spinner"></div>
+                    <p>Metin tanınıyor...</p>
+                    <div class="progress-bar"><div id="ocrProgressFill" class="progress-fill"></div></div>
+                    <p id="ocrProgressText">0%</p>
+                </div>
+                <div id="ocrResult" class="hidden">
+                    <textarea id="ocrText" readonly></textarea>
+                    <div class="ocr-actions">
+                        <button id="btnCopyText" class="secondary-btn">Kopyala</button>
+                        <button id="btnExportOCR" class="primary-btn">Dışa Aktar</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Settings Screen -->
+        <section id="settingsScreen" class="screen">
+            <div class="settings-list">
+                <div class="setting-item">
+                    <label>Çıktı Kalitesi</label>
+                    <select id="settingQuality">
+                        <option value="high">Yüksek</option>
+                        <option value="medium" selected>Orta</option>
+                        <option value="low">Düşük</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label>OCR Dili</label>
+                    <select id="settingLang">
+                        <option value="tur" selected>Türkçe</option>
+                        <option value="eng">İngilizce</option>
+                        <option value="tur+eng">Türkçe + İngilizce</option>
+                        <option value="deu">Almanca</option>
+                        <option value="fra">Fransızca</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label>Otomatik Çekim</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="settingAutoCapture" checked>
+                        <span class="toggle-slider"></span>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <label>Sayfa Boyutu</label>
+                    <select id="settingPageSize">
+                        <option value="a4" selected>A4</option>
+                        <option value="letter">Letter</option>
+                        <option value="legal">Legal</option>
+                        <option value="original">Orijinal</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Toast Notifications -->
+        <div id="toast" class="toast hidden"></div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <p id="loadingText">Yükleniyor...</p>
+        </div>
+    </div>
+
+    <input type="file" id="fileInput" accept="image/*" multiple class="hidden">
+
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="js/edge-detect.js"></script>
+    <script src="js/scanner.js"></script>
+    <script src="js/ocr.js"></script>
+    <script src="js/export.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
