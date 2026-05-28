@@ -22,6 +22,25 @@
     bindEvents();
     loadSettings();
     loadRecentDocs();
+    initWelcome();
+  }
+
+  function initWelcome() {
+    const welcome = $('welcomeScreen');
+    const skip = localStorage.getItem('docscan_skip_welcome') === 'true';
+
+    if (skip) {
+      welcome.remove();
+      return;
+    }
+
+    $('btnStart').addEventListener('click', () => {
+      if ($('skipWelcome').checked) {
+        localStorage.setItem('docscan_skip_welcome', 'true');
+      }
+      welcome.classList.add('closing');
+      setTimeout(() => welcome.remove(), 400);
+    });
   }
 
   function navigateTo(screenId, addToHistory = true) {
