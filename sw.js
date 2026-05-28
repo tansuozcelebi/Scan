@@ -1,4 +1,4 @@
-const CACHE_NAME = 'docscan-v1';
+const CACHE_NAME = 'docscan-v2';
 const ASSETS = [
   '/',
   '/index.html',
