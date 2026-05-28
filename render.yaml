@@ -2,20 +2,19 @@ services:
   - type: web
     name: docscan-pro
     runtime: static
-    buildCommand: ""
+    buildCommand: "echo 'Static site - no build step required'"
     staticPublishPath: .
-    envVars: []
+    pullRequestPreviewsEnabled: false
     headers:
-      - path: /*
-        name: Cache-Control
-        value: public, max-age=0, must-revalidate
       - path: /sw.js
         name: Cache-Control
-        value: public, max-age=0, must-revalidate
+        value: no-cache, no-store, must-revalidate
+      - path: /sw.js
+        name: Service-Worker-Allowed
+        value: /
       - path: /manifest.json
-        name: Cache-Control
-        value: public, max-age=0, must-revalidate
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
+        name: Content-Type
+        value: application/manifest+json
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
