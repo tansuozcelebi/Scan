@@ -13,14 +13,29 @@ class ExportManager {
       });
       files.push({ blob, name: `scan_${i + 1}.jpg` });
     }
-    if (files.length === 1) {
-      this._download(files[0].blob, files[0].name);
-    } else {
-      for (const f of files) {
-        this._download(f.blob, f.name);
-      }
+
+    if (files.length > 1) {
+      const shared = await this._shareMultiple(files, 'Taranan Sayfalar');
+      if (shared) return files;
+    }
+
+    for (const f of files) {
+      await this._download(f.blob, f.name);
     }
     return files;
+  }
+
+  async _shareMultiple(items, title) {
+    if (!navigator.canShare || !navigator.share) return false;
+    const files = items.map(i => new File([i.blob], i.name, { type: i.blob.type || this._mimeFromName(i.name) }));
+    if (!navigator.canShare({ files })) return false;
+    try {
+      await navigator.share({ files, title });
+      return true;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return true;
+      return false;
+    }
   }
 
   async exportPDF(pages, quality, pageSize) {
@@ -66,7 +81,7 @@ class ExportManager {
     }
 
     const blob = pdf.output('blob');
-    this._download(blob, `scan_${Date.now()}.pdf`);
+    await this._download(blob, `scan_${Date.now()}.pdf`);
     return blob;
   }
 
@@ -115,7 +130,7 @@ class ExportManager {
     });
 
     const blob = await Packer.toBlob(doc);
-    this._download(blob, `scan_${Date.now()}.docx`);
+    await this._download(blob, `scan_${Date.now()}.docx`);
     return blob;
   }
 
@@ -158,7 +173,7 @@ class ExportManager {
 
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    this._download(blob, `scan_${Date.now()}.xlsx`);
+    await this._download(blob, `scan_${Date.now()}.xlsx`);
     return blob;
   }
 
@@ -169,19 +184,47 @@ class ExportManager {
       text += ocrResults[i].text;
     }
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    this._download(blob, `scan_${Date.now()}.txt`);
+    await this._download(blob, `scan_${Date.now()}.txt`);
     return blob;
   }
 
-  _download(blob, filename) {
+  async _download(blob, filename) {
+    const mime = blob.type || this._mimeFromName(filename);
+    const file = new File([blob], filename, { type: mime });
+
+    if (this._canShareFile(file)) {
+      try {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+      }
+    }
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    a.rel = 'noopener';
+    a.target = '_blank';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setTimeout(() => URL.revokeObjectURL(url), 8000);
+  }
+
+  _canShareFile(file) {
+    return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [file] }));
+  }
+
+  _mimeFromName(name) {
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    return {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+      pdf: 'application/pdf', txt: 'text/plain;charset=utf-8',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }[ext] || 'application/octet-stream';
   }
 }
 

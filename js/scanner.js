@@ -16,29 +16,91 @@ class DocumentScanner {
     this.video = videoElement;
     this.overlayCanvas = overlayCanvas;
 
-    const constraints = {
-      video: {
-        facingMode: 'environment',
-        width: { ideal: 3840, min: 1920 },
-        height: { ideal: 2160, min: 1080 },
-        focusMode: 'continuous',
-        whiteBalanceMode: 'continuous',
-        exposureMode: 'continuous'
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      this.lastError = 'NO_API';
+      return false;
+    }
+
+    const tryConstraints = [
+      {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
+        audio: false
       },
-      audio: false
-    };
+      {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      },
+      { video: { facingMode: 'environment' }, audio: false },
+      { video: true, audio: false }
+    ];
+
+    let stream = null;
+    let lastErr = null;
+    for (const c of tryConstraints) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(c);
+        break;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+
+    if (!stream) {
+      this.lastError = lastErr && lastErr.name ? lastErr.name : 'UNKNOWN';
+      console.error('Camera error:', lastErr);
+      return false;
+    }
 
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-      this.video.srcObject = this.stream;
+      this._applyAdvancedConstraints(stream);
+    } catch (_) {}
+
+    this.stream = stream;
+    this.video.srcObject = stream;
+    this.video.setAttribute('playsinline', '');
+    this.video.setAttribute('webkit-playsinline', '');
+    this.video.muted = true;
+
+    try {
       await this.video.play();
-      this.isScanning = true;
-      this.edgeDetector.reset();
-      this._detectLoop();
-      return true;
-    } catch (err) {
-      console.error('Camera error:', err);
-      return false;
+    } catch (playErr) {
+      console.warn('video.play() error (may be autoplay policy):', playErr);
+    }
+
+    this.isScanning = true;
+    this.edgeDetector.reset();
+    this._detectLoop();
+    this.requestWakeLock();
+
+    if (!this._visibilityHandler) {
+      this._visibilityHandler = () => {
+        if (document.visibilityState === 'visible' && this.isScanning && !this._wakeLock) {
+          this.requestWakeLock();
+        }
+      };
+      document.addEventListener('visibilitychange', this._visibilityHandler);
+    }
+    return true;
+  }
+
+  _applyAdvancedConstraints(stream) {
+    const track = stream.getVideoTracks()[0];
+    if (!track || !track.getCapabilities) return;
+    const caps = track.getCapabilities();
+    const advanced = [];
+    if (caps.focusMode && caps.focusMode.includes('continuous')) advanced.push({ focusMode: 'continuous' });
+    if (caps.whiteBalanceMode && caps.whiteBalanceMode.includes('continuous')) advanced.push({ whiteBalanceMode: 'continuous' });
+    if (caps.exposureMode && caps.exposureMode.includes('continuous')) advanced.push({ exposureMode: 'continuous' });
+    if (advanced.length) {
+      track.applyConstraints({ advanced }).catch(() => {});
     }
   }
 
@@ -47,6 +109,11 @@ class DocumentScanner {
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
+    }
+    this.releaseWakeLock();
+    if (this._visibilityHandler) {
+      document.removeEventListener('visibilitychange', this._visibilityHandler);
+      this._visibilityHandler = null;
     }
     if (this.stream) {
       this.stream.getTracks().forEach(t => t.stop());
@@ -255,16 +322,37 @@ class DocumentScanner {
 
   _detectLoop() {
     if (!this.isScanning) return;
-    const result = this.edgeDetector.detect(this.video, this.overlayCanvas);
-    if (this.onDetectionUpdate) {
-      this.onDetectionUpdate(result);
-    }
-    if (result.stable && this.autoCapture) {
-      if (this.onAutoCapture) {
-        this.onAutoCapture();
+    const now = performance.now();
+    const targetInterval = 66;
+    if (!this._lastDetectAt || now - this._lastDetectAt >= targetInterval) {
+      if (this.video.videoWidth > 0 && this.video.readyState >= 2) {
+        const result = this.edgeDetector.detect(this.video, this.overlayCanvas);
+        if (this.onDetectionUpdate) this.onDetectionUpdate(result);
+        if (result.stable && this.autoCapture && this.onAutoCapture) {
+          this.onAutoCapture();
+        }
       }
+      this._lastDetectAt = now;
     }
     this.animFrameId = requestAnimationFrame(() => this._detectLoop());
+  }
+
+  async requestWakeLock() {
+    if (!('wakeLock' in navigator)) return null;
+    try {
+      this._wakeLock = await navigator.wakeLock.request('screen');
+      this._wakeLock.addEventListener('release', () => { this._wakeLock = null; });
+      return this._wakeLock;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  releaseWakeLock() {
+    if (this._wakeLock) {
+      this._wakeLock.release().catch(() => {});
+      this._wakeLock = null;
+    }
   }
 
   _cloneCanvas(src) {
