@@ -25,9 +25,17 @@
     initWelcome();
   }
 
+  function safeStorageGet(key) {
+    try { return localStorage.getItem(key); } catch (_) { return null; }
+  }
+  function safeStorageSet(key, val) {
+    try { localStorage.setItem(key, val); } catch (_) {}
+  }
+
   function initWelcome() {
     const welcome = $('welcomeScreen');
-    const skip = localStorage.getItem('docscan_skip_welcome') === 'true';
+    if (!welcome) return;
+    const skip = safeStorageGet('docscan_skip_welcome') === 'true';
 
     if (skip) {
       welcome.remove();
@@ -36,7 +44,7 @@
 
     $('btnStart').addEventListener('click', () => {
       if ($('skipWelcome').checked) {
-        localStorage.setItem('docscan_skip_welcome', 'true');
+        safeStorageSet('docscan_skip_welcome', 'true');
       }
       welcome.classList.add('closing');
       setTimeout(() => welcome.remove(), 400);
@@ -143,7 +151,20 @@
 
     const success = await scanner.startCamera(video, overlay);
     if (!success) {
-      showToast('Kamera erişimi reddedildi');
+      const err = scanner.lastError;
+      let msg = 'Kamera açılamadı';
+      if (err === 'NotAllowedError' || err === 'PermissionDeniedError') {
+        msg = 'Kamera izni verilmedi. iPhone Ayarlar → Safari → Kamera menüsünden izin verin.';
+      } else if (err === 'NotFoundError' || err === 'DevicesNotFoundError') {
+        msg = 'Kamera bulunamadı';
+      } else if (err === 'NotReadableError' || err === 'TrackStartError') {
+        msg = 'Kamera başka bir uygulama tarafından kullanılıyor';
+      } else if (err === 'OverconstrainedError') {
+        msg = 'Kamera bu ayarları desteklemiyor';
+      } else if (err === 'NO_API' || !location.protocol.startsWith('https') && location.hostname !== 'localhost') {
+        msg = 'Kamera için HTTPS bağlantı gerekli';
+      }
+      showToast(msg, 5000);
       navigateBack();
       return;
     }
@@ -608,7 +629,7 @@
   }
 
   function loadSettings() {
-    const saved = localStorage.getItem('docscan_settings');
+    const saved = safeStorageGet('docscan_settings');
     if (saved) {
       try {
         const settings = JSON.parse(saved);
@@ -635,13 +656,13 @@
       pageSize: $('settingPageSize').value
     };
     scanner.autoCapture = settings.autoCapture;
-    localStorage.setItem('docscan_settings', JSON.stringify(settings));
+    safeStorageSet('docscan_settings', JSON.stringify(settings));
   }
 
   function saveToRecent() {
     if (scanner.pages.length === 0) return;
     try {
-      const recent = JSON.parse(localStorage.getItem('docscan_recent') || '[]');
+      const recent = JSON.parse(safeStorageGet('docscan_recent') || '[]');
       const thumb = scanner.pages[0].canvas.toDataURL('image/jpeg', 0.3);
       recent.unshift({
         id: Date.now(),
@@ -650,13 +671,13 @@
         date: new Date().toLocaleDateString('tr-TR')
       });
       if (recent.length > 10) recent.length = 10;
-      localStorage.setItem('docscan_recent', JSON.stringify(recent));
+      safeStorageSet('docscan_recent', JSON.stringify(recent));
     } catch (e) {}
   }
 
   function loadRecentDocs() {
     try {
-      const recent = JSON.parse(localStorage.getItem('docscan_recent') || '[]');
+      const recent = JSON.parse(safeStorageGet('docscan_recent') || '[]');
       if (recent.length === 0) return;
 
       $('recentDocs').classList.remove('hidden');
