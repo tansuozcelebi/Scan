@@ -333,6 +333,15 @@ class EdgeDetector {
   }
 
   perspectiveTransform(sourceCanvas, contour, outputWidth, outputHeight) {
+    const MAX_EDGE = 2200;
+    let scale = 1;
+    const longest = Math.max(outputWidth, outputHeight);
+    if (longest > MAX_EDGE) {
+      scale = MAX_EDGE / longest;
+      outputWidth = Math.round(outputWidth * scale);
+      outputHeight = Math.round(outputHeight * scale);
+    }
+
     const dst = document.createElement('canvas');
     dst.width = outputWidth;
     dst.height = outputHeight;
@@ -346,33 +355,39 @@ class EdgeDetector {
       { x: 0, y: outputHeight }
     ];
 
-    const srcCtx = sourceCanvas.getContext('2d');
-    const srcData = srcCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
-    const dstData = dstCtx.createImageData(outputWidth, outputHeight);
+    const srcCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+    const srcW = sourceCanvas.width;
+    const srcH = sourceCanvas.height;
+    const srcPixels = srcCtx.getImageData(0, 0, srcW, srcH).data;
+    const dstImage = dstCtx.createImageData(outputWidth, outputHeight);
+    const dstPixels = dstImage.data;
 
-    const coeffs = this._computePerspectiveCoeffs(srcPts, dstPts);
+    const c = this._computePerspectiveCoeffs(srcPts, dstPts);
+    const c0 = c[0], c1 = c[1], c2 = c[2], c3 = c[3], c4 = c[4], c5 = c[5], c6 = c[6], c7 = c[7];
 
+    let dstIdx = 0;
     for (let y = 0; y < outputHeight; y++) {
+      const c1y = c1 * y + c2;
+      const c4y = c4 * y + c5;
+      const c7y = c7 * y + 1;
       for (let x = 0; x < outputWidth; x++) {
-        const denom = coeffs[6] * x + coeffs[7] * y + 1;
-        const srcX = (coeffs[0] * x + coeffs[1] * y + coeffs[2]) / denom;
-        const srcY = (coeffs[3] * x + coeffs[4] * y + coeffs[5]) / denom;
-
-        const sx = Math.round(srcX);
-        const sy = Math.round(srcY);
-
-        if (sx >= 0 && sx < sourceCanvas.width && sy >= 0 && sy < sourceCanvas.height) {
-          const srcIdx = (sy * sourceCanvas.width + sx) * 4;
-          const dstIdx = (y * outputWidth + x) * 4;
-          dstData.data[dstIdx] = srcData.data[srcIdx];
-          dstData.data[dstIdx + 1] = srcData.data[srcIdx + 1];
-          dstData.data[dstIdx + 2] = srcData.data[srcIdx + 2];
-          dstData.data[dstIdx + 3] = 255;
+        const denom = c6 * x + c7y;
+        const srcX = (c0 * x + c1y) / denom;
+        const srcY = (c3 * x + c4y) / denom;
+        const sx = srcX | 0;
+        const sy = srcY | 0;
+        if (sx >= 0 && sx < srcW && sy >= 0 && sy < srcH) {
+          const srcIdx = (sy * srcW + sx) << 2;
+          dstPixels[dstIdx] = srcPixels[srcIdx];
+          dstPixels[dstIdx + 1] = srcPixels[srcIdx + 1];
+          dstPixels[dstIdx + 2] = srcPixels[srcIdx + 2];
+          dstPixels[dstIdx + 3] = 255;
         }
+        dstIdx += 4;
       }
     }
 
-    dstCtx.putImageData(dstData, 0, 0);
+    dstCtx.putImageData(dstImage, 0, 0);
     return dst;
   }
 
